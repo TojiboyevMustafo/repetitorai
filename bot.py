@@ -685,20 +685,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # ---------------------------------------------------------------------------
 
 
+def create_application():
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(on_begin, pattern="^begin$"))
+    application.add_handler(CallbackQueryHandler(on_lang, pattern="^lang:"))
+    application.add_handler(CallbackQueryHandler(on_grade, pattern="^grade:"))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    return application
+
+
+# Vercel Python runtime loads this top-level entrypoint.
+app = create_application() if TELEGRAM_BOT_TOKEN else None
+
+
 def main() -> None:
-    if not TELEGRAM_BOT_TOKEN:
+    if app is None:
         raise SystemExit(
             "TELEGRAM_BOT_TOKEN o'rnatilmagan. "
             "export TELEGRAM_BOT_TOKEN='...' qilib qo'ying."
         )
-
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(on_begin, pattern="^begin$"))
-    app.add_handler(CallbackQueryHandler(on_lang, pattern="^lang:"))
-    app.add_handler(CallbackQueryHandler(on_grade, pattern="^grade:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Bot ishga tushdi...")
     app.run_polling()
