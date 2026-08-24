@@ -33,7 +33,10 @@ Foydalanuvchi oqimi:
 import os
 import io
 import base64
+import asyncio
+import json
 import logging
+from http.server import BaseHTTPRequestHandler
 from groq import Groq
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -698,18 +701,50 @@ def create_application():
 
 
 # Vercel Python runtime loads this top-level entrypoint.
-app = create_application() if TELEGRAM_BOT_TOKEN else None
+telegram_app = create_application() if TELEGRAM_BOT_TOKEN else None
+
+
+async def process_webhook_update(update_data: dict) -> None:
+    if telegram_app is None:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN o'rnatilmagan")
+
+    await telegram_app.initialize()
+    try:
+        update = Update.de_json(update_data, telegram_app.bot)
+        await telegram_app.process_update(update)
+    finally:
+        await telegram_app.shutdown()
+
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "ok"}).encode())
+
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        update_data = json.loads(self.rfile.read(content_length))
+        asyncio.run(process_webhook_update(update_data))
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"ok": True}).encode())
+
+    def log_message(self, format, *args):
+        logger.info("%s - %s", self.address_string(), format % args)
 
 
 def main() -> None:
-    if app is None:
+    if telegram_app is None:
         raise SystemExit(
             "TELEGRAM_BOT_TOKEN o'rnatilmagan. "
             "export TELEGRAM_BOT_TOKEN='...' qilib qo'ying."
         )
 
     logger.info("Bot ishga tushdi...")
-    app.run_polling()
+    telegram_app.run_polling()
 
 
 if __name__ == "__main__":

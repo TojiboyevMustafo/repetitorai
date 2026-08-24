@@ -7,8 +7,12 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/webhook",
       "dest": "bot.py"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
     }
   ]
 }
